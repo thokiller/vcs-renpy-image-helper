@@ -121,6 +121,8 @@ It will:
 
 If you push a tag like `v0.0.5` to GitHub, the repository's release workflow will build the extension automatically and attach the generated `.vsix` to the matching GitHub Release.
 
+The `v` prefix matters here. A tag named `0.0.5` will not match the workflow trigger.
+
 ## License
 
 This extension is distributed under GPL-2.0-only so that redistributed modifications must stay open source under the same license.
