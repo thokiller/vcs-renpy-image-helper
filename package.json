@@ -2,7 +2,7 @@
   "name": "renpy-image-preview",
   "displayName": "Ren'Py Image Preview",
   "description": "Preview project images referenced by Ren'Py show and scene statements.",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "publisher": "local",
   "license": "GPL-2.0-only",
   "private": true,
