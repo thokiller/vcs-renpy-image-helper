@@ -1,0 +1,4 @@
+.gitignore
+README.md
+.vscode/**
+build-vsix.cmd

@@ -1,0 +1,137 @@
+{
+  "name": "renpy-image-preview",
+  "displayName": "Ren'Py Image Preview",
+  "description": "Preview project images referenced by Ren'Py show and scene statements.",
+  "version": "0.0.4",
+  "publisher": "local",
+  "license": "GPL-2.0-only",
+  "private": true,
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "keywords": [
+    "renpy",
+    "visual-novel",
+    "image-preview"
+  ],
+  "categories": [
+    "Other"
+  ],
+  "scripts": {
+    "package": "vsce package"
+  },
+  "activationEvents": [
+    "workspaceContains:**/*.rpy",
+    "workspaceContains:**/*.rpym"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "renpyImagePreview.showPreview",
+        "title": "Ren'Py: Show Image Preview"
+      },
+      {
+        "command": "renpyImagePreview.insertImageFromProject",
+        "title": "Ren'Py: Insert Image From Project",
+        "icon": "$(image)"
+      },
+      {
+        "command": "renpyImagePreview.listMissingImages",
+        "title": "Ren'Py: List Missing Static Images",
+        "icon": "$(list-selection)"
+      },
+      {
+        "command": "renpyImagePreview.rescanMissingImages",
+        "title": "Ren'Py: Rescan Missing Static Images",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "renpyImagePreview.copyImageName",
+        "title": "Ren'Py: Copy Image Name"
+      },
+      {
+        "command": "renpyImagePreview.refreshIndex",
+        "title": "Ren'Py: Refresh Image Preview Index"
+      }
+    ],
+    "configuration": {
+      "title": "Ren'Py Image Preview",
+      "properties": {
+        "renpyImagePreview.searchRoots": {
+          "type": "array",
+          "default": [
+            "game/images",
+            "images"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Workspace-relative folders to scan for image files."
+        },
+        "renpyImagePreview.maxHoverMatches": {
+          "type": "number",
+          "default": 3,
+          "minimum": 1,
+          "maximum": 10,
+          "description": "Maximum number of matching file paths to list in the hover popup."
+        },
+        "renpyImagePreview.markMissingImages": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show a warning diagnostic on show/scene image names that do not resolve to an existing file. Dynamic expression-based references are ignored."
+        },
+        "renpyImagePreview.ignoredStaticImageNames": {
+          "type": "array",
+          "default": [
+            "black",
+            "blank",
+            "white"
+          ],
+          "items": {
+            "type": "string"
+          },
+          "description": "Static show/scene image aliases to ignore when checking missing image diagnostics and the missing-image quick list."
+        },
+        "renpyImagePreview.keepImagePickerOpen": {
+          "type": "boolean",
+          "default": true,
+          "description": "Keep the image picker panel open after inserting an image, until you close it manually."
+        }
+      }
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "renpyImagePreview.showPreview",
+          "when": "resourceExtname == .rpy || resourceExtname == .rpym",
+          "group": "navigation"
+        }
+      ],
+      "editor/title": [
+        {
+          "command": "renpyImagePreview.listMissingImages",
+          "when": "resourceExtname == .rpy || resourceExtname == .rpym",
+          "group": "navigation@2"
+        },
+        {
+          "command": "renpyImagePreview.rescanMissingImages",
+          "when": "resourceExtname == .rpy || resourceExtname == .rpym",
+          "group": "navigation@3"
+        }
+      ],
+      "webview/title": [
+        {
+          "command": "renpyImagePreview.listMissingImages",
+          "when": "webviewId == renpyImagePreview",
+          "group": "navigation"
+        },
+        {
+          "command": "renpyImagePreview.rescanMissingImages",
+          "when": "webviewId == renpyImagePreview",
+          "group": "navigation@2"
+        }
+      ]
+    }
+  }
+}

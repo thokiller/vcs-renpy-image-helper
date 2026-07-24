@@ -1,0 +1,6 @@
+Ren'Py Image Preview is licensed under the GNU General Public License version 2 only.
+
+You may redistribute and modify this software under the terms of the GPL-2.0-only license.
+
+The full license text is available at:
+https://www.gnu.org/licenses/old-licenses/gpl-2.0.en.html
