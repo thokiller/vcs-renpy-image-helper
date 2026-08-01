@@ -59,7 +59,7 @@ function activate(context) {
 
   const updateInsertImageStatusButton = () => {
     const editor = vscode.window.activeTextEditor;
-    if (!editor || !isSupportedDocument(editor.document)) {
+    if (!editor || !isSupportedInsertDocument(editor.document)) {
       insertImageStatusButton.hide();
       return;
     }
@@ -299,6 +299,15 @@ function isSupportedDocument(document) {
   );
 }
 
+function isSupportedInsertDocument(document) {
+  return (
+    document
+    && document.uri.scheme === 'file'
+    && !isIgnoredScriptUri(document.uri)
+    && (document.fileName.endsWith('.rpy') || document.fileName.endsWith('.rpym') || document.fileName.endsWith('.py'))
+  );
+}
+
 function stripComment(lineText) {
   const commentIndex = lineText.indexOf('#');
   if (commentIndex === -1) {
@@ -308,7 +317,7 @@ function stripComment(lineText) {
 }
 
 function getImageInsertTarget(document, lineNumber) {
-  if (!document || !isSupportedDocument(document) || lineNumber < 0 || lineNumber >= document.lineCount) {
+  if (!document || !isSupportedInsertDocument(document) || lineNumber < 0 || lineNumber >= document.lineCount) {
     return null;
   }
 
@@ -390,7 +399,7 @@ function getImageInsertTarget(document, lineNumber) {
 }
 
 function getFallbackShowInsertTarget(document, lineNumber) {
-  if (!document || !isSupportedDocument(document) || lineNumber < 0 || lineNumber >= document.lineCount) {
+  if (!document || !isSupportedInsertDocument(document) || lineNumber < 0 || lineNumber >= document.lineCount) {
     return null;
   }
 
@@ -716,6 +725,18 @@ async function resolveImageInsertTarget(args, options = {}) {
     return null;
   }
 
+  const activeEditor = vscode.window.activeTextEditor;
+  if (activeEditor && isSupportedInsertDocument(activeEditor.document)) {
+    const activeTarget = getImageInsertTarget(activeEditor.document, activeEditor.selection.active.line);
+    if (activeTarget) {
+      return activeTarget;
+    }
+
+    if (options.allowFallbackShowInsert) {
+      return getFallbackShowInsertTarget(activeEditor.document, activeEditor.selection.active.line);
+    }
+  }
+
   if (options.preferredDocumentUri) {
     const preferredEditor = getVisibleEditorForDocument(options.preferredDocumentUri);
     if (preferredEditor) {
@@ -728,20 +749,6 @@ async function resolveImageInsertTarget(args, options = {}) {
         return getFallbackShowInsertTarget(preferredEditor.document, preferredEditor.selection.active.line);
       }
     }
-  }
-
-  const editor = vscode.window.activeTextEditor;
-  if (!editor) {
-    return null;
-  }
-
-  const target = getImageInsertTarget(editor.document, editor.selection.active.line);
-  if (target) {
-    return target;
-  }
-
-  if (options.allowFallbackShowInsert) {
-    return getFallbackShowInsertTarget(editor.document, editor.selection.active.line);
   }
 
   return null;
@@ -772,7 +779,6 @@ async function showImageInsertPicker(target, state) {
   );
 
   panel.webview.html = renderImageInsertPickerHtml(panel.webview, index.allEntries);
-  let lastKnownTarget = target;
 
   panel.webview.onDidReceiveMessage(async (message) => {
     if (!message || message.command !== 'insertImage' || typeof message.imageName !== 'string') {
@@ -783,15 +789,13 @@ async function showImageInsertPicker(target, state) {
       allowFallbackShowInsert: true,
       preferredDocumentUri: target.documentUri
     });
-    const targetToUse = activeTarget || lastKnownTarget;
 
-    if (!targetToUse) {
-      vscode.window.showInformationMessage('Open a supported Ren\'Py file to insert an image.');
+    if (!activeTarget) {
+      vscode.window.showInformationMessage('Open a supported .py, .rpy, or .rpym file to insert an image at the cursor.');
       return;
     }
 
-    await applyImageInsertSelection(targetToUse, message.imageName);
-    lastKnownTarget = targetToUse;
+    await applyImageInsertSelection(activeTarget, message.imageName);
 
     const keepOpen = vscode.workspace.getConfiguration('renpyImagePreview').get('keepImagePickerOpen', true);
     if (!keepOpen) {
@@ -1121,6 +1125,11 @@ function renderImageInsertPickerHtml(webview, entries) {
       padding-bottom: 12px;
       z-index: 1;
     }
+    .search-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 8px;
+    }
     input[type="search"] {
       width: 100%;
       box-sizing: border-box;
@@ -1130,6 +1139,15 @@ function renderImageInsertPickerHtml(webview, entries) {
       padding: 10px 12px;
       border-radius: 8px;
       outline: none;
+    }
+    select {
+      border: 1px solid var(--vscode-dropdown-border, var(--vscode-input-border));
+      background: var(--vscode-dropdown-background, var(--vscode-input-background));
+      color: var(--vscode-dropdown-foreground, var(--vscode-input-foreground));
+      padding: 10px;
+      border-radius: 8px;
+      outline: none;
+      min-width: 170px;
     }
     .meta {
       margin-top: 8px;
@@ -1183,7 +1201,13 @@ function renderImageInsertPickerHtml(webview, entries) {
 </head>
 <body>
   <div class="toolbar">
-    <input id="search" type="search" placeholder="Search image names or paths..." autofocus />
+    <div class="search-row">
+      <input id="search" type="search" placeholder="Search image names..." autofocus />
+      <select id="searchMode" title="Choose search mode">
+        <option value="nameSequence">Name sequence</option>
+        <option value="crossPartial">Cross partial</option>
+      </select>
+    </div>
     <div id="count" class="meta"></div>
   </div>
   <div id="grid" class="grid"></div>
@@ -1192,6 +1216,7 @@ function renderImageInsertPickerHtml(webview, entries) {
     const vscode = acquireVsCodeApi();
     const entries = ${serializedEntries};
     const searchInput = document.getElementById('search');
+    const searchMode = document.getElementById('searchMode');
     const grid = document.getElementById('grid');
     const count = document.getElementById('count');
     const empty = document.getElementById('empty');
@@ -1205,13 +1230,55 @@ function renderImageInsertPickerHtml(webview, entries) {
         .replace(/'/g, '&#39;');
     }
 
+    function normalizeKey(value) {
+      return value
+        .toLowerCase()
+        .replace(/[._-]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function matchesNameSequence(query, entry) {
+      if (!query) {
+        return true;
+      }
+
+      const normalizedQuery = normalizeKey(query);
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      return normalizeKey(entry.imageName).includes(normalizedQuery);
+    }
+
+    function matchesCrossPartial(query, entry) {
+      if (!query) {
+        return true;
+      }
+
+      const normalizedQuery = normalizeKey(query);
+      if (!normalizedQuery) {
+        return true;
+      }
+
+      const queryParts = normalizedQuery.split(' ').filter(Boolean);
+      if (queryParts.length === 0) {
+        return true;
+      }
+
+      const searchable = normalizeKey(entry.imageName);
+      return queryParts.every((part) => searchable.includes(part));
+    }
+
     function render() {
-      const query = searchInput.value.trim().toLowerCase();
+      const query = searchInput.value.trim();
+      const mode = searchMode.value;
       const filtered = entries.filter((entry) => {
-        if (!query) {
-          return true;
+        if (mode === 'crossPartial') {
+          return matchesCrossPartial(query, entry);
         }
-        return entry.imageName.toLowerCase().includes(query) || entry.relativePath.toLowerCase().includes(query);
+
+        return matchesNameSequence(query, entry);
       });
 
       count.textContent = filtered.length + ' image' + (filtered.length === 1 ? '' : 's');
@@ -1236,6 +1303,7 @@ function renderImageInsertPickerHtml(webview, entries) {
     }
 
     searchInput.addEventListener('input', render);
+    searchMode.addEventListener('change', render);
     render();
   </script>
 </body>

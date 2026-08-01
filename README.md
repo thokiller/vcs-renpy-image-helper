@@ -13,7 +13,7 @@ This VS Code extension previews project images referenced by Ren'Py `show` and `
 
 ## Insert image selector
 
-The extension can open an image selector while editing supported `.rpy` and `.rpym` files.
+The extension can open an image selector while editing supported `.py`, `.rpy`, and `.rpym` files.
 
 You can trigger it by:
 
@@ -24,8 +24,16 @@ You can trigger it by:
 The selector includes:
 
 - A search bar
+- A search mode selector with two methods:
+	- `Name sequence`: matches a continuous sequence in the image filename (more precise)
+	- `Cross partial`: matches multiple partial words in any order (more flexible)
 - A 3-column thumbnail grid
 - Click-to-insert behavior that writes the chosen image name into the current `show` or `scene` line
+
+Example using `Cross partial`:
+
+- Search query: `nyxira angry swallow ling`
+- Can match: `nyxira lingerie angry pre swallow alt`
 
 If your cursor is on a non-`show`/`scene` line, clicking a thumbnail inserts a new indented `show <image>` line below the current line.
 
